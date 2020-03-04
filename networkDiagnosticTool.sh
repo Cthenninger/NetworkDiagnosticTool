@@ -2,13 +2,12 @@
 # Charles Henninger 2020
 # Network Connectivity Diagnostic Tool
 
-_DOMAIN=''
-_READABLE='false'
+# The request ID (_REQUESTID) is used in a database intended to store results that the console/handler has access to. It is not directly used in this script, but is
+# required in the output. If this wasn't an example, the flag for the request ID would be required.
 _REQUESTID=""
 _RESULT='PASS'
 _TESTS=("dnsTest" "routeTest" "certificateTest")
-_USAGE="Help Message"
-_VERBOSE='false'
+_USAGE="\nnetworkConnectivityDiagnostic Usage: ./networkConnectivityDiagnostic.sh [options...] <url>\n\nOptions:\n\t-r, Request ID (not necessary for this example, see comments)\n"
 
 # Check that the needed commands are installed
 if ! [ -x "$(command -v jq)" ]; then
@@ -20,26 +19,28 @@ elif ! [ -x "$(command -v openssl)" ]; then
   exit 1
 fi
 
-# Check that the domain flag was used 
-if [[ $* != *"-d "* ]]; then
-	echo "Error, no target domain included. Please run again using the -d flag follwed by your target domain"
-	exit 1
-fi
-
-# Check the flags and get the target domain value
-while getopts 'd:vri:' flag; do
+# Check the flags and get the target domain value.
+while getopts 'r:h' flag; do
 	case "${flag}" in
-		d) _DOMAIN="${OPTARG}" ;;
-		v) _VERBOSE='true' ;;
-		r) _READABLE='true';;
-		i) _REQUESTID="${OPTARG}" ;;
-		*) echo "$_USAGE"
-		   exit 1 ;;
+		r) shift
+		_REQUESTID="${OPTARG}" 
+		shift ;;
+		h) echo -e "$_USAGE"
+		exit 0 ;;
+		*) echo -e "$_USAGE"
+		exit 1 ;;
   esac
 done
 
+_DOMAIN="$1"
+# Check that a domain was passed in.
+if [ -z "$_DOMAIN" ]; then
+	echo "Error, no target domain included. For usage information, try ./networkConnectivityDiagnostic.sh -h"
+	exit 1
+fi
+
 # Remove any URL schemes that were included in the target domain 
-# Also auto removes any trailing forwardslashes
+# Also removes any trailing forward slashes.
 if [[ $_DOMAIN == *"https://"* ]]; then
 	_DOMAIN="${_DOMAIN:8}"
 elif [[ $_DOMAIN == *"http://"* ]]; then
@@ -47,10 +48,11 @@ elif [[ $_DOMAIN == *"http://"* ]]; then
 elif [[ $_DOMAIN == *"www."* ]]; then
 	_DOMAIN="${_DOMAIN:4}"
 fi
-if [[ $_DOMAIN == *".com/" ]]; then
+if [[ $_DOMAIN == *"/" ]]; then
 	_DOMAIN="${_DOMAIN::-1}"
 fi
 
+# This test uses dig to check DNS name servers for the target domain. If this fails, it's usually a NXDOMAIN error, meaning that a domain by that name cannot be found. 
 function dnsTest {
 	exitCode=0
 	result="PASS"
@@ -66,6 +68,8 @@ function dnsTest {
 	exit $exitCode
 }
 
+# The route test is to check if a valid connection can be established from this network. The '-k' flag we use is to ignore insecure connections, as we really only want to check
+# if a connection is possible in this test.
 function routeTest {
 	exitCode=0
 	result="PASS"
@@ -91,6 +95,8 @@ function routeTest {
 	exit $exitCode
 }
 
+# Similar to the route test, the Certificate test uses cURL's default SSL connection to see if a connection is secure. This will report some of the more common errors associated 
+# with domain certificates, such as an expired certificate or a certificate that has not been properly authorized.
 function certificateTest {
 	exitCode=0
 	result="PASS"
@@ -106,6 +112,8 @@ function certificateTest {
 	exit $exitCode
 }
 
+# One of the requirements for this feature was the ability to add or remove tests as needed based on feedback from customers. This loop runs every test located in the _TESTS list. All
+# that is required to add a test is to add the test's function above, and add it's function name into the _TESTS list. 
 testOutput=""
 for test in ${_TESTS[@]}; do
 	output=$($test $_DOMAIN)
