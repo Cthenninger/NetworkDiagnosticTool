@@ -6,3 +6,5 @@ This tool is designed to run three of the tests we chose to include based on cus
 The script is functional as is, provided you have the few required commands installed (and bash, of course). Written on Ubuntu Bash Shell. Output is standard JSON. 
 
 Usage: ./networkConnectivityDiagnostic.sh [options...] <url>You can run this script by saving it as an executable and running it as normal 
+
+badssl.com has some good resources to try this script with. 
